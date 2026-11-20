@@ -1,9 +1,11 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Clipboard, ClipboardCheck, Trash2, Send, Search, Package, Leaf, Box, Coffee } from 'lucide-react';
 import { DRY_STOCK_ITEMS, PACKAGING_ITEMS, FRESH_PRODUCE_ITEMS, CAFE_ITEMS } from './constants';
 
 type TabType = 'dry-stock' | 'packaging' | 'fresh-produce' | 'cafe';
+
+const QTY_OPTIONS = ['1', '2', '3', '4', '5'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -19,8 +21,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : {};
   });
   const [generatedText, setGeneratedText] = useState<string>('');
-
-  const isNewFocus = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     localStorage.setItem('tamrab_thai_quantities', JSON.stringify(quantities));
@@ -51,58 +51,6 @@ export default function App() {
       item.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [currentItems, searchTerm]);
-
-  const handleQuantityChange = (id: string, value: string) => {
-    // 1. If user cleared the input or hit Backspace to make it empty, set to "-"
-    if (value === '') {
-      setQuantities(prev => ({
-        ...prev,
-        [id]: '-'
-      }));
-      return;
-    }
-
-    // 2. Allow only numbers, decimal point, and "-"
-    let sanitizedValue = value.replace(/[^0-9.-]/g, '');
-
-    // 3. Strip any "-" if there's any digit alongside it
-    if (/[0-9]/.test(sanitizedValue) && sanitizedValue.includes('-')) {
-      sanitizedValue = sanitizedValue.replace(/-/g, '');
-    }
-
-    // 4. Always replace mode on first keystroke after focus/click
-    if (isNewFocus.current[id]) {
-      isNewFocus.current[id] = false; // Reset focus state
-      const oldVal = quantities[id] || '';
-      
-      if (sanitizedValue.length > 0 && oldVal !== '-' && oldVal !== '') {
-        const oldChars = oldVal.split('');
-        const newChars = sanitizedValue.split('');
-        
-        let typedChar = sanitizedValue[sanitizedValue.length - 1]; // Fallback to last character
-        for (let i = 0; i < newChars.length; i++) {
-          if (newChars[i] !== oldChars[i]) {
-            typedChar = newChars[i];
-            break;
-          }
-        }
-        
-        if (typedChar && /[0-9.]/.test(typedChar)) {
-          sanitizedValue = typedChar;
-        }
-      }
-    }
-
-    // Prevent multiple leading zeros
-    if (sanitizedValue.length > 1 && sanitizedValue.startsWith('0') && sanitizedValue[1] !== '.') {
-      sanitizedValue = sanitizedValue.replace(/^0+/, '') || '0';
-    }
-
-    setQuantities(prev => ({
-      ...prev,
-      [id]: sanitizedValue
-    }));
-  };
 
   const generateOrder = () => {
     const tabTitle = activeTab === 'dry-stock' ? 'Dry Stock' : activeTab === 'packaging' ? 'Packaging' : activeTab === 'fresh-produce' ? 'Fresh Produce' : 'Cafe';
@@ -257,21 +205,19 @@ export default function App() {
                           {item.name}
                         </div>
                         <div className="p-0 border-r border-[#026877]">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="-"
-                            value={quantities[item.id] === '-' ? '' : (quantities[item.id] || '')}
-                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                            onFocus={(e) => {
-                              isNewFocus.current[item.id] = true;
-                              e.currentTarget.select();
-                            }}
-                            onClick={(e) => {
-                              e.currentTarget.select();
-                            }}
-                            className="w-full h-full p-2 md:p-3 text-center text-base md:text-sm font-mono focus:bg-[#026877] focus:text-[#F5F5F0] outline-none transition-colors"
-                          />
+                          <select
+                            value={quantities[item.id] || '-'}
+                            onChange={(e) => setQuantities(prev => ({ ...prev, [item.id]: e.target.value }))}
+                            className="w-full h-full p-2 md:p-3 text-center text-base md:text-sm font-mono bg-white focus:bg-[#026877] focus:text-[#F5F5F0] outline-none transition-colors cursor-pointer"
+                          >
+                            <option value="-">-</option>
+                            {QTY_OPTIONS.map(n => (
+                              <option key={n} value={n}>{n}</option>
+                            ))}
+                            {quantities[item.id] && quantities[item.id] !== '-' && !QTY_OPTIONS.includes(quantities[item.id]) && (
+                              <option value={quantities[item.id]}>{quantities[item.id]}</option>
+                            )}
+                          </select>
                         </div>
                         {item.units ? (
                           <div className="p-0">
